@@ -110,4 +110,5 @@ df['json_output'] = df['Excerpt'].apply(lambda x: transcript_to_json(x))
 df = df.reset_index(drop=True)
 
 diff_length_df = subsample_excerpt_by_length(df, 5, 200, num_samples=5)
-diff_length_df.to_csv(PATH_TO_OUTPUT, index=False)
+#diff_length_df.to_csv(PATH_TO_OUTPUT, index=False)
+diff_length_df.to_pickle(PATH_TO_OUTPUT.replace('.csv', '.pkl'))
