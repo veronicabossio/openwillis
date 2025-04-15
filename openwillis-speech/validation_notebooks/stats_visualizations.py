@@ -744,3 +744,56 @@ def plot_posthoc_heatmap(df, metric, group_col='Grade Level', grade_order=None, 
     )
     #fig.show()
     return fig
+
+
+def plot_length_dependence_by_grade(df, metric, grade_order = ['Kindergarten', 'Elementary', 'Teen', 'College', 'Adult']):
+
+    """
+    Creates a row of scatter plots showing the relationship between excerpt length and a given metric, 
+    faceted by grade level.
+
+    Parameters:
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing at least 'Excerpt_Length', the metric of interest, and 'Grade Level' columns.
+    metric : str
+        The name of the column in `df` representing the metric to plot on the y-axis.
+    grade_order : list of str, optional
+        List of grade level labels specifying the order in which plots should appear.
+
+    Returns:
+    -------
+    plotly.graph_objects.Figure
+        A Plotly figure with subplots showing metric vs. excerpt length per grade level.
+    """
+
+    rows = 1
+    cols = 5
+
+    fig = make_subplots(
+        rows=rows, cols=cols,
+        subplot_titles=grade_order,
+        shared_yaxes=True,
+        horizontal_spacing=0.03
+    )
+
+    for i, grade in enumerate(grade_order):
+        subset = df[df['Grade Level'] == grade]
+        fig.add_trace(
+            go.Scatter(
+                x=subset['Excerpt_Length'],
+                y=subset[metric],
+                mode='markers',
+                marker=dict(size=5, opacity=0.5, color='royalblue'),
+                name=grade,
+                showlegend=False
+            ),
+            row=1, col=i + 1
+        )
+
+    fig.update_layout(
+        height=350, width=250*5,
+        title_text=f'{metric.replace("_", " ").title()} vs Excerpt Length by Grade Level',
+        template='plotly_white'
+    )
+    return fig
