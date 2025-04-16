@@ -11,25 +11,29 @@ Dependencies: nltk, numpy, pandas
 """
 
 import random
+from pathlib import Path
 
 import nltk
 import numpy as np
 import pandas as pd
 from nltk.tokenize import word_tokenize
 
-PATH_TO_CLEAR = '/Users/veronicabossio/Library/Mobile Documents/com~apple~CloudDocs/brooklyn_health/data/CLEAR/CLEAR.csv'
-PATH_TO_OUTPUT = '/Users/veronicabossio/Library/Mobile Documents/com~apple~CloudDocs/brooklyn_health/data/CLEAR/augmented_CLEAR.csv'
-
-df = pd.read_csv(PATH_TO_CLEAR)
+sample_size = 5
+#PATH_TO_CLEAR = Path('/Users/veronicabossio/Library/Mobile Documents/com~apple~CloudDocs/brooklyn_health/data/CLEAR')
+PATH_TO_CLEAR = Path('/home/ssm-user/bklynhlth-science/datasets/datasets_external/text/clear_corpus')
+base_df = 'CLEAR.csv'
+PATH_TO_OUTPUT = PATH_TO_CLEAR / f'CLEAR_diff_lengths_samplesize_{sample_size}.csv'
+df = pd.read_csv(PATH_TO_CLEAR / base_df)
 
 # bin grade level into 5 groups and get a balanced sample of 100 excerpts per grade level
 df = df[['ID','Flesch-Kincaid-Grade-Level','Flesch-Reading-Ease','Excerpt']]
-df['Grade Level'] = pd.cut(df['Flesch-Kincaid-Grade-Level'], [0,4,8,12,16,50],labels = ['Kindergarten','Elementary','Teen','College','Adult'])
+df['Grade Level'] = pd.cut(df['Flesch-Kincaid-Grade-Level'], [0,4,8,12,16,50],
+                           labels = ['Kindergarten','Elementary','Teen','College','Adult'])
 
 # subset a balanced sample of 100 excerpts from each grade level
 random.seed(10)
 grades = ['Kindergarten','Elementary','Teen','College','Adult']
-grades_ls = np.array([random.sample(df[df['Grade Level'] == grade]['ID'].values.tolist(), 100)
+grades_ls = np.array([random.sample(df[df['Grade Level'] == grade]['ID'].values.tolist(), sample_size)
                       for grade in grades]).flatten()
 df = df[df['ID'].isin(grades_ls)]
 
@@ -110,5 +114,16 @@ df['json_output'] = df['Excerpt'].apply(lambda x: transcript_to_json(x))
 df = df.reset_index(drop=True)
 
 diff_length_df = subsample_excerpt_by_length(df, 5, 200, num_samples=5)
-#diff_length_df.to_csv(PATH_TO_OUTPUT, index=False)
-diff_length_df.to_pickle(PATH_TO_OUTPUT.replace('.csv', '.pkl'))
+
+# sanity check: length distribution
+# import plotly.express as px
+# import plotly.io as pio
+# pio.renderers.default = 'notebook'
+# pio.templates.default = 'simple_white'
+# fig = px.histogram(diff_length_df, x='Excerpt_Length', color='Truncated',
+#                    title='Excerpt Length Distribution',
+#                    labels={'Excerpt_Length': 'Excerpt Length (words)', 'Truncated': 'Truncated'},
+#                    color_discrete_sequence=['blue', 'orange'])
+
+diff_length_df.to_csv(PATH_TO_OUTPUT, index=False)
+diff_length_df.to_pickle(PATH_TO_OUTPUT.with_suffix('.pkl'))
