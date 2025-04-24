@@ -253,7 +253,7 @@ def clean_text(text):
     text = text.replace('’', "'").replace('‘', "'")
     return text
 
-def score_excerpt(text):
+def score_excerpt(text, nlp_splitter, nlp_parser):
     
     """
     Computes Yngve and Frazier syntactic complexity scores for a text excerpt.
@@ -277,15 +277,6 @@ def score_excerpt(text):
         }
     """
 
-    nlp_splitter = spacy.load("en_core_web_sm")
-    nlp_parser = spacy.load("en_core_web_sm")
-
-    if "benepar" not in nlp_parser.pipe_names:
-        nlp_parser.add_pipe("benepar", config={"model": "benepar_en3"})
-    
-    if not Span.has_extension("parse_tree"):
-        Span.set_extension("parse_tree", getter=get_parented_tree)
-
     try:
         text = clean_text(text)
 
@@ -306,7 +297,6 @@ def score_excerpt(text):
                 # Parse the sentence with Benepar-enabled pipeline
                 sent_doc = nlp_parser(sent.text)
                 sents_parsed = list(sent_doc.sents)
-
                 if not sents_parsed:
                     continue  # Sentence was not parsed properly
 
@@ -330,8 +320,8 @@ def score_excerpt(text):
     except Exception:
         # If the entire excerpt fails (e.g. tokenizer error, encoding)
         return pd.Series({"yngve_score": np.nan, "frazier_score": np.nan})
-
-
+    
+    
 
 def get_tag(word_df, word_list, measures):
     """
@@ -575,8 +565,6 @@ def get_sentiment(df_list, text_list, measures):
     It also calculates measures of lexical diversity: the MATTR, Brunet's Index, Honoré's Statistic,
     and syntactic complexity: the Yngve and Frazier scores.
 
-    The function has evolved so we could consider renaming it?
-
     Parameters:
     ...........
     df_list: list
@@ -596,7 +584,17 @@ def get_sentiment(df_list, text_list, measures):
     try:
         word_df, turn_df, summ_df = df_list
         _, turn_list, full_text = text_list
+
         lemmatizer = spacy.load('en_core_web_sm')
+
+        nlp_parser = spacy.load("en_core_web_sm")
+        if "benepar" not in nlp_parser.pipe_names:
+             nlp_parser.add_pipe("benepar", config={"model": "benepar_en3"})
+        # We keep `nlp_parser` separate from the lemmatizer to isolate Benepar effects.
+        # Benepar overrides `.sents`, which can break full-text segmentation and affect other features downstream.
+        # adds ~2s to the pipeline
+        if not Span.has_extension("parse_tree"):
+            Span.set_extension("parse_tree", getter=get_parented_tree)
 
         sentiment = SentimentIntensityAnalyzer()
 
@@ -613,7 +611,7 @@ def get_sentiment(df_list, text_list, measures):
                 mattrs = [get_mattr(u, lemmatizer, window_size=ws) for ws in [5, 10, 25, 50, 100]]
                 brunet = get_brunet_index(u, lemmatizer)
                 honore = get_honore_statistic(u, lemmatizer)
-                syntax_scores = score_excerpt(u)
+                syntax_scores = score_excerpt(u, lemmatizer, nlp_parser=nlp_parser)
                 yngve = syntax_scores["yngve_score"]
                 frazier = syntax_scores["frazier_score"]
 
@@ -627,7 +625,7 @@ def get_sentiment(df_list, text_list, measures):
         mattrs = [get_mattr(full_text, lemmatizer, window_size=ws) for ws in [5, 10, 25, 50, 100]]
         brunet = get_brunet_index(full_text, lemmatizer)
         honore = get_honore_statistic(full_text, lemmatizer)
-        syntax_scores = score_excerpt(full_text)
+        syntax_scores = score_excerpt(full_text, lemmatizer, nlp_parser=nlp_parser)
         yngve = syntax_scores["yngve_score"]
         frazier = syntax_scores["frazier_score"]
 
