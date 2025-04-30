@@ -4,5 +4,4 @@ dist/
 *.egg-info/
 *.pyc
 *.html
-*.txt
 
